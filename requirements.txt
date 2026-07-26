@@ -1,0 +1,13 @@
+# Direct dependencies only, hand-curated — update this file as part of any step's
+# commit that adds a new import or runtime dependency.
+
+# Step 1 (Ingest)
+pandas==2.3.3
+requests==2.32.5
+
+# Step 2 (Tile/QC)
+numpy==2.0.2
+openslide-bin==4.0.1.2
+openslide-python==1.4.2
+pillow==11.3.0
+pyarrow==21.0.0
