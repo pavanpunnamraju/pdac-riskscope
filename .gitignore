@@ -1,0 +1,19 @@
+# Docs kept local, not tracked
+docs/
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv
+venv
+*.egg-info/
+
+# Large imaging data / model artifacts — never commit
+data/raw
+*.svs
+*.h5
+*.pkl
+*.ckpt
