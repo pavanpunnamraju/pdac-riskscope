@@ -1,7 +1,7 @@
 """Step 2 (Tile/QC): tile the pilot TCGA-PAAD WSIs into fixed-physical-size patches
 and filter background/artifact tiles. No feature extraction here (Step 3).
 
-Design doc: docs/plans/2026-07-25-tmeimage_pdac-design.md (Cancer Project root).
+Design doc: docs/plans/2026-07-27-pdac-riskscope-design.md (Cancer Project root).
 
 Output is a coordinate manifest per slide (tile location + QC verdict), not cropped
 tile images — Step 3 re-reads tiles from the SVS on demand using these coordinates,
@@ -23,7 +23,7 @@ OUT_DIR = DATA_DIR / "processed" / "tiles"
 # Standardize all tiles to the same physical size regardless of native scan
 # objective (this pilot mixes 40x and 20x scans, see tile_qc summary).
 TARGET_MPP = 0.5  # microns/pixel, i.e. 20x-equivalent
-TILE_PX = 256  # -> ~128um x 128um tissue per tile, standard patch size (cf. CLAM)
+TILE_PX = 224  # Virchow2's expected input size (224x224 @ 20x per its model card)
 
 MIN_TISSUE_FRACTION = 0.5  # tile must be >=50% tissue to pass background filter
 COARSE_MIN_TISSUE = 0.05  # coarse thumbnail pre-filter, cheap rejection of pure background

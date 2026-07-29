@@ -1,7 +1,7 @@
 """Step 1 (Ingest): download a pilot set of TCGA-PAAD H&E whole-slide images (SVS)
 from GDC, plus clinical metadata, stratified across submitting sites where possible.
 
-Design doc: docs/plans/2026-07-25-tmeimage_pdac-design.md (Cancer Project root).
+Design doc: docs/plans/2026-07-27-pdac-riskscope-design.md (Cancer Project root).
 """
 
 import json
@@ -118,8 +118,8 @@ def fetch_clinical(case_ids):
             "submitter_id",
             "diagnoses.ajcc_pathologic_stage",
             "diagnoses.age_at_diagnosis",
-            "diagnoses.vital_status",
-            "diagnoses.days_to_death",
+            "demographic.vital_status",
+            "demographic.days_to_death",
             "diagnoses.days_to_last_follow_up",
             "demographic.gender",
             "demographic.race",

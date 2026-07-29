@@ -11,9 +11,14 @@ __pycache__/
 venv
 *.egg-info/
 
+# Secrets
+.env
+
 # Large imaging data / model artifacts — never commit
 data/raw
+data/processed/embeddings
 *.svs
 *.h5
+*.npz
 *.pkl
 *.ckpt
