@@ -32,7 +32,7 @@ OUT_DIR = DATA_DIR / "processed" / "embeddings"
 TILE_PX = 224  # must match src/tile_qc.py's TILE_PX (Virchow2's expected input)
 NUM_REGISTER_TOKENS = 4  # Virchow2-specific: class token, then 4 register tokens, then patch tokens
 
-BATCH_SIZE = 32
+BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "32"))
 
 
 def load_env_file(path):
@@ -63,7 +63,14 @@ def load_model(device):
 def embed_tiles(model, transform, images, device):
     """images: list of PIL RGB images, TILE_PX x TILE_PX. Returns (n, 2*embed_dim) array."""
     batch = torch.stack([transform(im) for im in images]).to(device)
-    output = model(batch)  # (n, 1 + NUM_REGISTER_TOKENS + n_patches, embed_dim)
+    # Virchow2's model card recommends mixed-precision inference on GPU:
+    # torch.autocast(device_type="cuda", dtype=torch.float16). Only apply on cuda --
+    # autocast fp16 isn't the documented/beneficial path on cpu or mps.
+    if device == "cuda":
+        with torch.autocast(device_type="cuda", dtype=torch.float16):
+            output = model(batch)  # (n, 1 + NUM_REGISTER_TOKENS + n_patches, embed_dim)
+    else:
+        output = model(batch)
     class_token = output[:, 0]
     patch_tokens = output[:, NUM_REGISTER_TOKENS + 1:]
     embedding = torch.cat([class_token, patch_tokens.mean(dim=1)], dim=-1)

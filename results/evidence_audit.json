@@ -1,0 +1,16 @@
+{
+  "status": "descriptive_audit_of_saved_artifacts_not_corrected_validation",
+  "patients": 179,
+  "events": 100,
+  "sites": 27,
+  "missing_stage": 0,
+  "bags_available": 179,
+  "subsampled_patients": 146,
+  "tile_count_vs_historical_loss": {
+    "pearson_r": 0.020777398012458335,
+    "pearson_p": 0.7824981728018513,
+    "spearman_r": 0.032234846107170506,
+    "spearman_p": 0.6683870051555929
+  },
+  "interpretation": "Correlation does not establish whether subsampling harms predictive performance; a controlled sampling comparison is required."
+}

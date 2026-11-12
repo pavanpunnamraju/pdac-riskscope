@@ -1,6 +1,3 @@
-# Docs kept local, not tracked
-docs/
-
 # OS
 .DS_Store
 
@@ -17,8 +14,15 @@ venv
 # Large imaging data / model artifacts — never commit
 data/raw
 data/processed/embeddings
+data/kaggle_chunks
 *.svs
 *.h5
 *.npz
 *.pkl
 *.ckpt
+
+# Generated intermediates and local run output
+data/processed/tiles_batch/
+data/processed/tiles_batch_raw/
+*.log
+results/validation/

@@ -16,3 +16,10 @@ pyarrow==21.0.0
 torch==2.5.1
 torchvision==0.20.1
 timm==1.0.28
+
+# Step 6 (Validation)
+scikit-learn==1.6.1
+lifelines==0.30.0
+
+# Saved-evidence diagnostic
+scipy==1.13.1

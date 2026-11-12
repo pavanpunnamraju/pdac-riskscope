@@ -1,0 +1,13 @@
+{
+  "status": "historical_unverified_evaluation_defects_identified",
+  "source": "Cancer Project/docs/live_task_progress.md, Milestone 2 result, working conclusion dated 2026-08-10",
+  "n_patients": 179,
+  "original_predictions_available": false,
+  "reported_metrics": {
+    "image_model": {"c_index": 0.450, "ci_95": [0.384, 0.516]},
+    "stage_alone_cox": {"c_index": 0.445, "ci_95": [0.386, 0.507]},
+    "image_plus_stage_cox": {"c_index": 0.441, "ci_95": [0.382, 0.506]}
+  },
+  "reported_incremental_c_index": -0.004,
+  "corrected_full_cohort_run_completed": false
+}

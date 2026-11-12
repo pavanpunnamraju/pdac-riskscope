@@ -3,9 +3,11 @@
 discrete-time negative-log-likelihood survival loss (Zadeh & Schmid 2020),
 following the PORPOISE (Chen et al. 2022) precedent validated on TCGA-PAAD.
 
-Milestone 1 (this script): 18-patient pilot only, plumbing/feasibility smoke
-test — trains on the full pilot with no held-out split, and no C-index
-reporting. Nested-CV validation is Step 6, not built here.
+Milestone 2 (this run): full 183-patient cohort (18-patient pilot + 165-patient
+Lightning batch). This script trains on the full cohort with no held-out
+split, and no C-index reporting -- nested-CV validation is Step 6
+(src/validate_mil_survival.py), not built here; this checkpoint is a
+convenience full-data fit, not the validated model.
 
 Design doc: docs/plans/2026-07-27-pdac-riskscope-design.md (Step 5 row).
 
@@ -38,6 +40,20 @@ LR = 2e-4
 WEIGHT_DECAY = 1e-5
 EPOCHS = 50
 SEED = 0
+
+# Bags average ~15k tiles/patient (max 45k). Full bags on every forward/backward pass,
+# times nested-CV's ~75k passes, is both a compute and a memory problem (all bags held
+# resident at once -> ~27GB, more than this machine's RAM). Cap tiles/patient with a
+# fixed per-patient random subsample at load time -- bounds both.
+MAX_TILES = 4000
+
+
+def resolve_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
 
 
 class AttnNetGated(nn.Module):
@@ -84,7 +100,7 @@ def nll_surv_loss(hazards, y_bin, censored, alpha=ALPHA, eps=1e-7):
     censored: 1 if censored (no event observed), 0 if event observed
     """
     S = torch.cumprod(1 - hazards, dim=0)  # (n_bins,)
-    S_padded = torch.cat([torch.ones(1, dtype=S.dtype), S])  # (n_bins + 1,), S_padded[0] = 1
+    S_padded = torch.cat([torch.ones(1, dtype=S.dtype, device=S.device), S])  # (n_bins + 1,), S_padded[0] = 1
 
     uncensored_loss = -(1 - censored) * (
         torch.log(S_padded[y_bin].clamp(min=eps)) + torch.log(hazards[y_bin].clamp(min=eps))
@@ -95,12 +111,18 @@ def nll_surv_loss(hazards, y_bin, censored, alpha=ALPHA, eps=1e-7):
     return loss
 
 
-def discretize_times(times, events, n_bins=N_BINS):
+def discretize_times(times, events, n_bins=N_BINS, edges=None):
     """Bin edges from quantiles of uncensored (event=1) times, PORPOISE convention.
 
     Returns bin index per patient (0..n_bins-1) and the bin edges.
     """
+    times = np.asarray(times, dtype=float)
+    events = np.asarray(events)
+    if edges is not None:
+        return np.digitize(times, np.asarray(edges)[1:-1], right=False), np.asarray(edges)
     event_times = times[events == 1]
+    if not len(event_times):
+        raise ValueError("Training partition must contain observed events")
     quantiles = np.linspace(0, 1, n_bins + 1)
     edges = np.quantile(event_times, quantiles)
     edges[0] = 0.0
@@ -113,13 +135,22 @@ def discretize_times(times, events, n_bins=N_BINS):
     return bin_idx, edges
 
 
-def load_pilot_bags():
+def load_pilot_bags(max_tiles=MAX_TILES):
+    """Loads each patient's bag, subsampling to at most max_tiles tiles (fixed seed
+    per patient, so the subsample is deterministic/reproducible across runs)."""
     manifest = pd.read_csv(BAGS_MANIFEST_PATH)
     bags = []
-    for _, row in manifest.iterrows():
+    for i, row in manifest.iterrows():
         npz_path = BAGS_DIR / f"{row['patient_id']}_bag.npz"
         data = np.load(npz_path)
-        bags.append(data["embeddings"].astype(np.float32))
+        emb = data["embeddings"].astype(np.float32)
+        if max_tiles is not None and emb.shape[0] > max_tiles:
+            # seeded by row position (not Python's hash(), which is randomized per
+            # process) so the subsample is reproducible across runs/machines.
+            rng = np.random.default_rng(SEED * 100_003 + i)
+            keep = rng.choice(emb.shape[0], size=max_tiles, replace=False)
+            emb = emb[keep]
+        bags.append(emb)
     return manifest, bags
 
 
@@ -135,12 +166,14 @@ def train():
     print(f"time-bin edges (days): {np.round(edges, 1).tolist()}")
     print(f"bin assignment counts: {np.bincount(y_bins, minlength=N_BINS).tolist()}")
 
-    model = GatedAttentionMILSurvival()
+    device = resolve_device()
+    print(f"device={device}")
+    model = GatedAttentionMILSurvival().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 
-    bag_tensors = [torch.from_numpy(b) for b in bags]
-    y_bin_t = torch.from_numpy(y_bins).long()
-    censored_t = torch.from_numpy(1 - events).float()
+    bag_tensors = [torch.from_numpy(b).to(device) for b in bags]
+    y_bin_t = torch.from_numpy(y_bins).long().to(device)
+    censored_t = torch.from_numpy(1 - events).float().to(device)
 
     model.train()
     for epoch in range(1, EPOCHS + 1):
@@ -162,7 +195,7 @@ def train():
             print(f"epoch {epoch:3d}  mean_loss={epoch_loss:.4f}  nan_hit={nan_hit}")
 
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-    ckpt_path = CHECKPOINT_DIR / "mil_survival_pilot.ckpt"
+    ckpt_path = CHECKPOINT_DIR / "mil_survival_full.ckpt"
     torch.save(model.state_dict(), ckpt_path)
     print(f"saved checkpoint to {ckpt_path}")
 

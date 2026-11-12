@@ -13,10 +13,23 @@ import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 EMBEDDINGS_DIR = DATA_DIR / "processed" / "embeddings"
-CLINICAL_PATH = DATA_DIR / "raw" / "clinical" / "pilot_clinical.json"
-MANIFEST_PATH = DATA_DIR / "raw" / "pilot_manifest.csv"
+CLINICAL_PATH = DATA_DIR / "raw" / "clinical" / "full_cohort_clinical.json"
+PILOT_MANIFEST_PATH = DATA_DIR / "raw" / "pilot_manifest.csv"
+LIGHTNING_MANIFEST_PATH = DATA_DIR / "raw" / "lightning_batch_selection.csv"
 BAGS_DIR = DATA_DIR / "processed" / "bags"
 BAGS_MANIFEST_PATH = BAGS_DIR / "bags_manifest.csv"
+
+
+def load_manifest():
+    """Full-scale patient roster is the union of the 18-patient pilot batch and
+    the 165-patient Lightning batch -- both were tiled/embedded and together
+    cover every patient with embeddings in EMBEDDINGS_DIR."""
+    pilot = pd.read_csv(PILOT_MANIFEST_PATH)[["case_submitter_id", "tss_code"]]
+    lightning = pd.read_csv(LIGHTNING_MANIFEST_PATH)[["case_submitter_id", "tss_code"]]
+    combined = pd.concat([pilot, lightning], ignore_index=True).drop_duplicates(
+        subset="case_submitter_id"
+    )
+    return combined.set_index("case_submitter_id")
 
 
 def primary_diagnosis(diagnoses):
@@ -63,7 +76,7 @@ def main():
     BAGS_DIR.mkdir(parents=True, exist_ok=True)
 
     clinical = {r["submitter_id"]: r for r in json.load(open(CLINICAL_PATH))}
-    manifest = pd.read_csv(MANIFEST_PATH).set_index("case_submitter_id")
+    manifest = load_manifest()
 
     embedding_files = sorted(EMBEDDINGS_DIR.glob("*_embeddings.npz"))
     patient_ids = [f.name.removesuffix("_embeddings.npz") for f in embedding_files]
